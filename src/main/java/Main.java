@@ -1,11 +1,11 @@
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
-import com.opencsv.CSVReader;
-import com.opencsv.bean.ColumnPositionMappingStrategy;
-import com.opencsv.bean.CsvToBean;
-import com.opencsv.bean.CsvToBeanBuilder;
-
-import java.io.FileReader;
+import org.w3c.dom.*;
+import org.xml.sax.SAXException;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -15,28 +15,45 @@ import java.util.List;
 public class Main {
 
     public static void main(String[] args) {
-        String[] columnMapping = {"id", "firstName", "lastName", "country", "age"};
-        String fileName = "data.csv";
-        List<Employee> list = parseCSV(columnMapping, fileName);
-        JSONWriter(list);
+
+        String fileName2 = "data.xml";
+
+        JSONWriter(parseXML(fileName2));
     }
 
-    public static List<Employee> parseCSV(String[] columnMapping, String fileName) {
+    public static List<Employee> parseXML(String filename) {
         List<Employee> staff = new ArrayList<>();
-        try (CSVReader reader = new CSVReader(new FileReader(fileName))) {
-            ColumnPositionMappingStrategy<Employee> strategy =
-                    new ColumnPositionMappingStrategy<>();
-            strategy.setType(Employee.class);
-            strategy.setColumnMapping(columnMapping);
-
-            CsvToBean<Employee> csv = new CsvToBeanBuilder<Employee>(reader)
-                    .withMappingStrategy(strategy)
-                    .build();
-            staff = csv.parse();
-        } catch (IOException e) {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new File(filename));
+            NodeList nodeList = doc.getElementsByTagName("employee");
+            for (int i = 0; i < nodeList.getLength(); i++) {
+                staff.add(getEmployee(nodeList.item(i)));
+            }
+        } catch (ParserConfigurationException | IOException | SAXException e) {
             e.printStackTrace();
         }
         return staff;
+    }
+
+    private static Employee getEmployee(Node node) {
+        Employee employee = new Employee();
+        if (node.getNodeType() == Node.ELEMENT_NODE) {
+            Element element = (Element) node;
+            employee.id = Integer.parseInt(getTagValue("id", element));
+            employee.firstName = getTagValue("firstName", element);
+            employee.lastName = getTagValue("lastName", element);
+            employee.country = getTagValue("country", element);
+            employee.age = Integer.parseInt(getTagValue("age", element));
+        }
+        return employee;
+    }
+
+    public static String getTagValue(String tag, Element element) {
+        NodeList nodeList = element.getElementsByTagName(tag).item(0).getChildNodes();
+        Node node = (Node) nodeList.item(0);
+        return node.getNodeValue();
     }
 
     public static void JSONWriter(List<Employee> list) {
@@ -45,7 +62,7 @@ public class Main {
         GsonBuilder builder = new GsonBuilder().setPrettyPrinting();
         Gson gson = builder.create();
         String json = gson.toJson(list, listType);
-        try (FileWriter file = new FileWriter("data.json")) {
+        try (FileWriter file = new FileWriter("data2.json")) {
             file.write(json);
             file.flush();
         } catch (IOException e) {
